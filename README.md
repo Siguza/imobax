@@ -5,6 +5,8 @@ It extracts backups... and stuff.
 
 Binary releases for macOS: [here](https://github.com/Siguza/imobax/releases).
 
+FYI: On macOS, iTunes places backups in `~/Library/Application Support/MobileSync/Backup`. ;)
+
 ### Building
 
 As always:
