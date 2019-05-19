@@ -185,7 +185,7 @@ int main(int argc, const char **argv)
                     goto out;
                 }
             }
-            fromfd = openat(auxfd == -1 ? AT_FDCWD : auxfd, ent->fileID, O_RDONLY);
+            fromfd = openat(auxfd == -1 ? srcdir : auxfd, ent->fileID, O_RDONLY);
             if(fromfd == -1)
             {
                 ERRNO("open(%s)", ent->fileID);

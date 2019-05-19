@@ -1,4 +1,4 @@
-VERSION = 1.0.0
+VERSION = 1.0.1
 TARGET  = imobax
 SRCDIR  = src
 FLAGS  ?= -Wall -O3 -DVERSION=$(VERSION) -DTIMESTAMP="`date +'%d. %B %Y %H:%M:%S'`" -flto -lsqlite3 $(CFLAGS)

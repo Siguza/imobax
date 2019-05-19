@@ -12,7 +12,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>             // malloc, free
-#include <string.h>             // strdup, memcmp
+#include <string.h>             // strcat, strdup, memcmp
 #include <sqlite3.h>
 #include <unistd.h>             // close
 #include <sys/mman.h>           // mmap, munmap
@@ -67,6 +67,74 @@ out:;
     return retval;
 }
 
+static void db_debug_log(void *arg, int code, const char *msg)
+{
+    LOG("[DBG] (%u) %s", code, msg);
+}
+
+static char* db_make_uri(const char *path)
+{
+    if(path[0] != '/')
+    {
+        LOG("db_make_uri: not an absolute path");
+        return NULL;
+    }
+    size_t len =  7  // file://
+               + 12  // ?immutable=1
+               +  1; // NUL
+    for(size_t i = 0; path[i] != '\0'; ++i)
+    {
+        char c = path[i];
+        if
+        (
+            (c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            c == '_' || c == '-' || c == '.' || c == '~' || c == '/'
+        )
+        {
+            len += 1;
+        }
+        else
+        {
+            len += 3; // %xx
+        }
+    }
+    char *uri = malloc(len);
+    if(!uri)
+    {
+        ERRNO("malloc(uri)");
+        return NULL;
+    }
+    uri[0] = '\0';
+    strcat(uri, "file://");
+    size_t u = 7;
+    for(size_t i = 0; path[i] != '\0'; ++i)
+    {
+        char c = path[i];
+        if
+        (
+            (c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            c == '_' || c == '-' || c == '.' || c == '~' || c == '/'
+        )
+        {
+            uri[u++] = c;
+        }
+        else
+        {
+            const char hex[] = "0123456789ABCDEF";
+            uri[u++] = '%';
+            uri[u++] = hex[(c >> 4) & 0xf];
+            uri[u++] = hex[(c     ) & 0xf];
+        }
+    }
+    uri[u] = '\0';
+    strcat(uri, "?immutable=1");
+    return uri;
+}
+
 db_ent_t* db_getlist_sqlite3(int srcdir)
 {
     // Ideally we'd want to pass a file handle to SQLite,
@@ -79,6 +147,7 @@ db_ent_t* db_getlist_sqlite3(int srcdir)
     // But if the API can't do better, what are we supposed to do?
     char buf[MAXPATHLEN];
     int fd = -1;
+    char *uri = NULL;
     sqlite3 *db = NULL;
     char *err = NULL;
     db_ent_t *retval = NULL;
@@ -94,8 +163,20 @@ db_ent_t* db_getlist_sqlite3(int srcdir)
         ERRNO("fcntl(" DBFILE_SQLITE ")");
         goto out;
     }
+    uri = db_make_uri(buf);
+    if(!uri)
+    {
+        goto out;
+    }
 
-    int r = sqlite3_open_v2(buf, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, NULL); // yolo
+    int r = sqlite3_config(SQLITE_CONFIG_LOG, &db_debug_log, NULL);
+    if(r != SQLITE_OK)
+    {
+        LOG("sqlite3_config(SQLITE_CONFIG_LOG): %s", sqlite3_errstr(r));
+        goto out;
+    }
+
+    r = sqlite3_open_v2(uri, &db, SQLITE_OPEN_URI | SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, NULL); // yolo
     if(r != SQLITE_OK)
     {
         LOG("sqlite3_open: %s", sqlite3_errstr(r));
@@ -114,6 +195,7 @@ db_ent_t* db_getlist_sqlite3(int srcdir)
 out:;
     if(err) sqlite3_free(err);
     if(db) sqlite3_close(db);
+    if(uri) free(uri);
     if(fd != -1) close(fd);
     return retval;
 }
