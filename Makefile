@@ -1,7 +1,15 @@
 VERSION = 1.0.1
 TARGET  = imobax
 SRCDIR  = src
-FLAGS  ?= -Wall -O3 -DVERSION=$(VERSION) -DTIMESTAMP="`date +'%d. %B %Y %H:%M:%S'`" -flto -lsqlite3 $(CFLAGS)
+ifeq ($(shell uname -s), Linux)
+	WARN = -Wall -Wno-unused-but-set-variable -Wno-unused-result
+	LIBS = -flto -lsqlite3 -lssl -lcrypto
+else
+	WARN = -Wall
+	LIBS = -flto -lsqlite3
+endif
+
+FLAGS  ?= $(WARN) -O3 -DVERSION=$(VERSION) -DTIMESTAMP="`date +'%d. %B %Y %H:%M:%S'`" $(LIBS) $(CFLAGS)
 
 .PHONY: all clean
 

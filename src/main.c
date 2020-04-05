@@ -8,16 +8,14 @@
  * defined by the Mozilla Public License, v. 2.0.
 **/
 
-#include <copyfile.h>
-#include <fcntl.h>              // open, O_*
-#include <stdbool.h>
-#include <stdio.h>              // [as|f]printf, stderr, fputs
-#include <stdlib.h>             // free
-#include <string.h>             // strcmp, strlen
-#include <unistd.h>             // close, access, faccessat, F_OK
-
 #include "common.h"
 #include "db.h"
+
+#ifdef __APPLE__
+#include <copyfile.h>
+#else
+#include <sys/sendfile.h>
+#endif
 
 static void usage(const char *self)
 {
@@ -47,6 +45,10 @@ int main(int argc, const char **argv)
         tofd   = -1;
     db_ent_t *head = NULL;
     int aoff = 1;
+#ifndef __APPLE__
+    off_t bytes = 0;
+    struct stat fileinfo = {0};
+#endif
     for(; aoff < argc; ++aoff)
     {
         if(argv[aoff][0] != '-') break;
@@ -199,17 +201,30 @@ int main(int argc, const char **argv)
             {
                 goto out;
             }
+#ifdef __APPLE__
             tofd = openat(dstdir, topath, O_WRONLY | crflags);
+#else
+            tofd = openat(dstdir, topath, O_WRONLY | crflags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+#endif
             if(tofd == -1)
             {
                 ERRNO("open(%s)", topath);
                 goto out;
             }
+#ifdef __APPLE__
             if(fcopyfile(fromfd, tofd, NULL, COPYFILE_ALL) != 0)
             {
                 ERRNO("copyfile(%s)", topath);
                 goto out;
             }
+#else
+            fstat(fromfd, &fileinfo);
+            if(sendfile(tofd, fromfd, &bytes, fileinfo.st_size) < 0)
+            {
+                ERRNO("sendfile(%s)", topath);
+                goto out;
+            }
+#endif
 
         next:;
             if(tofd != -1)

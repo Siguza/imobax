@@ -8,20 +8,15 @@
  * defined by the Mozilla Public License, v. 2.0.
 **/
 
-#include <fcntl.h>              // fcntl, F_GETPATH, openat, O_*
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>             // malloc, free
-#include <string.h>             // strcat, strdup, memcmp
-#include <sqlite3.h>
-#include <unistd.h>             // close
-#include <sys/mman.h>           // mmap, munmap
-#include <sys/param.h>          // MAXPATHLEN
-#include <sys/stat.h>           // fstat
-#include <CommonCrypto/CommonDigest.h> // CC_SHA1
-
 #include "common.h"
 #include "db.h"
+
+#include <sqlite3.h>
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#else
+#include <openssl/sha.h>
+#endif
 
 static int db_getlist_cb(void *arg, int num, char **data, char **cols)
 {
@@ -158,11 +153,21 @@ db_ent_t* db_getlist_sqlite3(int srcdir)
         ERRNO("open(" DBFILE_SQLITE ")");
         goto out;
     }
+#ifdef __APPLE__
     if(fcntl(fd, F_GETPATH, buf) != 0)
     {
         ERRNO("fcntl(" DBFILE_SQLITE ")");
         goto out;
     }
+#else
+    char *linkpath = NULL;
+    asprintf(&linkpath, "/proc/self/fd/%d", fd);
+    if(readlink(linkpath, buf, MAXPATHLEN) < 0)
+    {
+        ERRNO("readlink(" DBFILE_SQLITE ")");
+        goto out;
+    }
+#endif
     uri = db_make_uri(buf);
     if(!uri)
     {
@@ -324,7 +329,11 @@ db_ent_t* db_getlist_mbdb(int srcdir)
             ERRNO("asprintf");
             goto out;
         }
+#ifdef __APPLE__
         CC_SHA1(fullPath, strlen(fullPath), (unsigned char*)(fileID + 20));
+#else
+        SHA1((const unsigned char*) fullPath, strlen(fullPath), (unsigned char*)(fileID + 20));
+#endif
         for(size_t i = 0; i < 20; ++i)
         {
             uint8_t val = (uint8_t)fileID[20 + i],
