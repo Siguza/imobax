@@ -8,13 +8,6 @@
  * defined by the Mozilla Public License, v. 2.0.
 **/
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdlib.h>             // free
-#include <string.h>             // strdup
-#include <unistd.h>             // faccessat, F_OK
-#include <sys/stat.h>           // mkdirat
-
 #include "common.h"
 
 int mkdirat_recursive(int fd, const char *path, bool only_parent)

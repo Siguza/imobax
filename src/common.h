@@ -11,10 +11,25 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#ifndef __APPLE__
+#define _GNU_SOURCE
+#endif
+
 #include <errno.h>
 #include <stdbool.h>
-#include <stdio.h>              // fprintf, stderr
-#include <string.h>             // strerror
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
 #define LOG(str, args...) do { fprintf(stderr, str "\n", ##args); } while(0)
 #define ERRNO(str, args...) LOG(str ": %s", ##args, strerror(errno))
