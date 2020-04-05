@@ -46,7 +46,6 @@ int main(int argc, const char **argv)
     db_ent_t *head = NULL;
     int aoff = 1;
 #ifndef __APPLE__
-    off_t bytes = 0;
     struct stat fileinfo = {0};
 #endif
     for(; aoff < argc; ++aoff)
@@ -219,7 +218,7 @@ int main(int argc, const char **argv)
             }
 #else
             fstat(fromfd, &fileinfo);
-            if(sendfile(tofd, fromfd, &bytes, fileinfo.st_size) < 0)
+            if(sendfile(tofd, fromfd, NULL, fileinfo.st_size) < 0)
             {
                 ERRNO("sendfile(%s)", topath);
                 goto out;
